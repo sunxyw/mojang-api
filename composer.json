@@ -1,0 +1,17 @@
+{
+    "name": "sunxyw/mojang-api",
+    "description": "A easy package for official Mojang API",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "sunxyw",
+            "email": "xy2496419818@gmail.com"
+        }
+    ],
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "MojangApi\\": "src"
+        }
+    }
+}
