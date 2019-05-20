@@ -2,6 +2,11 @@
 
 namespace MojangApi;
 
+use function PhpBoot\abort;
+use function Sunxyw\SXYLib\dataConvert;
+use Symfony\Component\Debug\Exception\FatalErrorException;
+use Symfony\Component\Debug\Exception\UndefinedMethodException;
+
 /**
  * Class MojangApi
  * @package MojangApi
@@ -9,12 +14,34 @@ namespace MojangApi;
  */
 class MojangApi
 {
+    static public function __callStatic($name, $arguments)
+    {
+        $return = null;
+
+        if (method_exists(self::class, $name)) {
+            if (isset($arguments[1])) {
+                $return = self::$name($arguments[0], $arguments[1]);
+            } else {
+                $return = self::$name($arguments[0]);
+            }
+        } else {
+            $method_name = self::class . '::' . $name . '()';
+            abort(new UndefinedMethodException('Call to undefined method ' . $method_name, (new \ErrorException())));
+        }
+
+        if (is_array($return)) {
+            $return = dataConvert()->arr2obj($return);
+        }
+
+        return $return;
+    }
+
     /**
      * Get Mojang status
      *
      * @return array|bool  Array with status, FALSE on failure
      */
-    public static function getStatus()
+    protected function getStatus()
     {
         $json = static::fetchJson('https://status.mojang.com/check');
         if (is_array($json)) {
@@ -37,7 +64,7 @@ class MojangApi
      * @param int $time optional
      * @return string|bool  UUID (without dashes) on success, FALSE on failure
      */
-    public static function getUuid($username, $time = 0)
+    protected function getUuid($username, $time = 0)
     {
         $profile = static::getProfile($username, $time);
         if (is_array($profile) and isset($profile['id'])) {
@@ -52,7 +79,7 @@ class MojangApi
      * @param string $uuid
      * @return string|bool  Username on success, FALSE on failure
      */
-    public static function getUsername($uuid)
+    protected function getUsername($uuid)
     {
         $history = static::getNameHistory($uuid);
         if (is_array($history)) {
@@ -71,7 +98,7 @@ class MojangApi
      * @param int $time optional
      * @return array|bool  Array with id and name, FALSE on failure
      */
-    public static function getProfile($username, $time = 0)
+    protected function getProfile($username, $time = 0)
     {
         if (static::isValidUsername($username) and is_numeric($time)) {
             return static::fetchJson(
@@ -89,7 +116,7 @@ class MojangApi
      * @param string $uuid
      * @return array|bool  Array with his username's history, FALSE on failure
      */
-    public static function getNameHistory($uuid)
+    protected function getNameHistory($uuid)
     {
         if (static::isValidUuid($uuid)) {
             return static::fetchJson('https://api.mojang.com/user/profiles/' . static::minifyUuid($uuid) . '/names');
@@ -103,7 +130,7 @@ class MojangApi
      * @param string $string to check
      * @return bool    Whether username is valid or not
      */
-    public static function isValidUsername($string)
+    protected function isValidUsername($string)
     {
         return is_string($string)
             and strlen($string) >= 2
@@ -117,7 +144,7 @@ class MojangApi
      * @param string $string to check
      * @return bool    Whether UUID is valid or not
      */
-    public static function isValidUuid($string)
+    protected function isValidUuid($string)
     {
         return is_string(static::minifyUuid($string));
     }
@@ -128,7 +155,7 @@ class MojangApi
      * @param string $uuid
      * @return string|bool  UUID without dashes (32 chars), FALSE on failure
      */
-    public static function minifyUuid($uuid)
+    protected function minifyUuid($uuid)
     {
         if (is_string($uuid)) {
             $minified = str_replace('-', '', $uuid);
@@ -145,7 +172,7 @@ class MojangApi
      * @param string $uuid
      * @return string|bool  UUID with dashes (36 chars), FALSE on failure
      */
-    public static function formatUuid($uuid)
+    protected function formatUuid($uuid)
     {
         $uuid = static::minifyUuid($uuid);
         if (is_string($uuid)) {
@@ -164,7 +191,7 @@ class MojangApi
      * @param string $uuid
      * @return bool|null  TRUE if Alex, FALSE if Steve, NULL on error
      */
-    public static function isAlex($uuid)
+    protected function isAlex($uuid)
     {
         $uuid = static::minifyUuid($uuid);
         if (is_string($uuid)) {
@@ -185,7 +212,7 @@ class MojangApi
      * @param string $uuid
      * @return array|bool  Array with profile and properties, FALSE on failure
      */
-    public static function getSessionProfile($uuid)
+    protected function getSessionProfile($uuid)
     {
         if (static::isValidUuid($uuid)) {
             return static::fetchJson('https://sessionserver.mojang.com/session/minecraft/profile/'
@@ -203,7 +230,7 @@ class MojangApi
      * @see getSessionProfile($uuid)
      *
      */
-    public static function getTextures($uuid)
+    protected function getTextures($uuid)
     {
         $profile = static::getSessionProfile($uuid);
         if (is_array($profile)
@@ -232,7 +259,7 @@ class MojangApi
      * @see getSessionProfile($uuid)
      *
      */
-    public static function getSkinUrl($uuid)
+    protected function getSkinUrl($uuid)
     {
         $textures = static::getTextures($uuid);
         if (is_array($textures)) {
@@ -257,7 +284,7 @@ class MojangApi
      * @see getSessionProfile($uuid)
      *
      */
-    public static function getSkin($uuid)
+    protected function getSkin($uuid)
     {
         $skinUrl = static::getSkinUrl($uuid);
         if (is_string($skinUrl)) {
@@ -276,7 +303,7 @@ class MojangApi
      * @see getSessionProfile($uuid)
      *
      */
-    public static function getPlayerHead($uuid, $size = 100)
+    protected function getPlayerHead($uuid, $size = 100)
     {
         $skin = static::getSkin($uuid);
         if (is_string($skin)) {
@@ -290,7 +317,7 @@ class MojangApi
      *
      * @return string  Steve skin
      */
-    public static function getSteveSkin()
+    protected function getSteveSkin()
     {
         return base64_decode(
             'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAFDUlEQVR42u2a20sUURzH97G0LKMotPuWbVpslj1olJXdjCgyisow'
@@ -319,7 +346,7 @@ class MojangApi
      *
      * @return string  Alex skin
      */
-    public static function getAlexSkin()
+    protected function getAlexSkin()
     {
         return base64_decode(
             'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAAZiS0dEAIwAuACKS3UjegAAAAlwSFlzAAAL'
@@ -360,7 +387,7 @@ class MojangApi
      *
      * @return string  Steve head
      */
-    public static function getSteveHead($size = 100)
+    protected function getSteveHead($size = 100)
     {
         return static::getPlayerHeadFromSkin(static::getSteveSkin(), $size);
     }
@@ -370,7 +397,7 @@ class MojangApi
      *
      * @return string  Alex head
      */
-    public static function getAlexHead($size = 100)
+    protected function getAlexHead($size = 100)
     {
         return static::getPlayerHeadFromSkin(static::getAlexSkin(), $size);
     }
@@ -382,7 +409,7 @@ class MojangApi
      * @param int $size in pixels
      * @return string|bool  Player head, FALSE on failure
      */
-    public static function getPlayerHeadFromSkin($skin, $size = 100)
+    protected function getPlayerHeadFromSkin($skin, $size = 100)
     {
         if (is_string($skin)) {
             $im = @imagecreatefromstring($skin);
@@ -410,7 +437,7 @@ class MojangApi
      * @param string $img
      * @param int $cache in seconds, 0 to disable
      */
-    public static function printImage($img, $cache = 86400)
+    protected function printImage($img, $cache = 86400)
     {
         header('Content-type: image/png');
         header('Pragma: public');
@@ -425,7 +452,7 @@ class MojangApi
      * @param string $img
      * @return string  embed image
      */
-    public static function embedImage($img)
+    protected function embedImage($img)
     {
         return substr($img, 0, strlen('data:image')) === 'data:image'
             ? $img
@@ -441,7 +468,7 @@ class MojangApi
      * @param string $password Account's password
      * @return array|bool  Array with id and name, FALSE if authentication failed
      */
-    public static function authenticate($id, $password)
+    protected function authenticate($id, $password)
     {
         if (!function_exists('curl_init') or !extension_loaded('curl')) {
             return false;
@@ -488,7 +515,7 @@ class MojangApi
      * @param int $timeout Timeout (in seconds), default is 2
      * @return array|bool  Array with query result, FALSE if query failed
      */
-    public static function query($address, $port = 25565, $timeout = 2)
+    protected function query($address, $port = 25565, $timeout = 2)
     {
         // Check arguments and if functions exists
         if (!is_numeric($timeout) or $timeout < 0 or !function_exists('fsockopen')) {
@@ -587,7 +614,7 @@ class MojangApi
      * @param int $timeout Timeout (in seconds), default is 2
      * @return array|bool  Array with query result, FALSE if query failed
      */
-    public static function ping($address, $port = 25565, $timeout = 2)
+    protected function ping($address, $port = 25565, $timeout = 2)
     {
         // Check arguments and if functions exists
         if (!is_numeric($timeout) or $timeout < 0 or !function_exists('fsockopen')) {
